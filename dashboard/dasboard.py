@@ -6,28 +6,25 @@ import plotly.graph_objects as go
 # Load data
 @st.cache_data
 def load_data():
-    co_data = pd.read_csv('PRSA_Data_Tiantan_20130301-20170228.csv')
-    temp_data = pd.read_csv('PRSA_Data_Shunyi_20130301-20170228.csv')
+    data = pd.read_csv('PRSA_Data_Tiantan_20130301-20170228.csv')
+    print("Columns in the dataset:", data.columns.tolist())
     
-    print("Columns in CO dataset:", co_data.columns.tolist())
-    print("Columns in Temperature dataset:", temp_data.columns.tolist())
+    # Check if 'year', 'month', 'day', and 'hour' columns exist
+    if all(col in data.columns for col in ['year', 'month', 'day', 'hour']):
+        # Create datetime column
+        data['datetime'] = pd.to_datetime(data[['year', 'month', 'day', 'hour']])
+    else:
+        st.error("Required columns (year, month, day, hour) are not present in the dataset.")
+        st.stop()
     
-    # Process CO and temperature data
-    for data in [co_data, temp_data]:
-        if all(col in data.columns for col in ['year', 'month', 'day', 'hour']):
-            data['datetime'] = pd.to_datetime(data[['year', 'month', 'day', 'hour']])
-        else:
-            st.error("Required columns (year, month, day, hour) are not present in one of the datasets.")
-            st.stop()
-    
-    return co_data, temp_data
+    return data
 
 # Main function to run the Streamlit app
 def main():
     st.title('Dashboard Kualitas Udara: Analisis CO dan Suhu')
 
     # Load data
-    co_data, temp_data = load_data()
+    data = load_data()
 
     # Sidebar
     st.sidebar.header('Pengaturan')
@@ -35,22 +32,20 @@ def main():
     # Date range selector
     date_range = st.sidebar.date_input(
         "Pilih rentang tanggal",
-        [co_data['datetime'].min().date(), co_data['datetime'].max().date()],
-        min_value=co_data['datetime'].min().date(),
-        max_value=co_data['datetime'].max().date()
+        [data['datetime'].min().date(), data['datetime'].max().date()],
+        min_value=data['datetime'].min().date(),
+        max_value=data['datetime'].max().date()
     )
 
     # Filter data based on date range
-    filtered_co_data = co_data[(co_data['datetime'].dt.date >= date_range[0]) & 
-                               (co_data['datetime'].dt.date <= date_range[1])]
-    filtered_temp_data = temp_data[(temp_data['datetime'].dt.date >= date_range[0]) & 
-                                   (temp_data['datetime'].dt.date <= date_range[1])]
+    filtered_data = data[(data['datetime'].dt.date >= date_range[0]) & 
+                         (data['datetime'].dt.date <= date_range[1])]
 
     # CO Analysis
     st.header('Analisis CO')
 
     # Calculate CO counts by hour
-    co_counts_by_hour = filtered_co_data.groupby('hour')['CO'].nunique().reset_index()
+    co_counts_by_hour = filtered_data.groupby('hour')['CO'].nunique().reset_index()
 
     # Create bar plot for CO using Plotly
     fig_co = px.bar(co_counts_by_hour, x='hour', y='CO', 
@@ -72,7 +67,7 @@ def main():
     st.header('Analisis Suhu')
 
     # Calculate average temperature by hour
-    avg_temp_by_hour = filtered_temp_data.groupby('hour')['TEMP'].mean().reset_index()
+    avg_temp_by_hour = filtered_data.groupby('hour')['TEMP'].mean().reset_index()
 
     # Create bar plot for temperature using Plotly
     fig_temp = px.bar(avg_temp_by_hour, x='hour', y='TEMP',
@@ -97,43 +92,45 @@ def main():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric("Rata-rata CO", f"{filtered_co_data['CO'].mean():.2f}")
+        st.metric("Rata-rata CO", f"{filtered_data['CO'].mean():.2f}")
     
     with col2:
-        st.metric("CO Maksimum", filtered_co_data['CO'].max())
+        st.metric("CO Maksimum", filtered_data['CO'].max())
     
     with col3:
-        st.metric("CO Minimum", filtered_co_data['CO'].min())
+        st.metric("CO Minimum", filtered_data['CO'].min())
 
     col4, col5, col6 = st.columns(3)
 
     with col4:
-        st.metric("Rata-rata Suhu", f"{filtered_temp_data['TEMP'].mean():.2f} °C")
+        st.metric("Rata-rata Suhu", f"{filtered_data['TEMP'].mean():.2f} °C")
     
     with col5:
-        st.metric("Suhu Maksimum", f"{filtered_temp_data['TEMP'].max():.2f} °C")
+        st.metric("Suhu Maksimum", f"{filtered_data['TEMP'].max():.2f} °C")
     
     with col6:
-        st.metric("Suhu Minimum", f"{filtered_temp_data['TEMP'].min():.2f} °C")
+        st.metric("Suhu Minimum", f"{filtered_data['TEMP'].min():.2f} °C")
 
     # Time series plots
     st.header('Tren CO dan Suhu Sepanjang Waktu')
     
-    daily_co_data = filtered_co_data.groupby(filtered_co_data['datetime'].dt.date)['CO'].mean().reset_index()
-    daily_temp_data = filtered_temp_data.groupby(filtered_temp_data['datetime'].dt.date)['TEMP'].mean().reset_index()
+    daily_data = filtered_data.groupby(filtered_data['datetime'].dt.date).agg({
+        'CO': 'mean',
+        'TEMP': 'mean'
+    }).reset_index()
     
     fig_trend = go.Figure()
 
     fig_trend.add_trace(go.Scatter(
-        x=daily_co_data['datetime'],
-        y=daily_co_data['CO'],
+        x=daily_data['datetime'],
+        y=daily_data['CO'],
         name='CO',
         yaxis='y1'
     ))
 
     fig_trend.add_trace(go.Scatter(
-        x=daily_temp_data['datetime'],
-        y=daily_temp_data['TEMP'],
+        x=daily_data['datetime'],
+        y=daily_data['TEMP'],
         name='Temperature',
         yaxis='y2'
     ))
