@@ -6,8 +6,8 @@ import plotly.graph_objects as go
 # Load data
 @st.cache_data
 def load_data():
-    co_data = pd.read_csv(r'C:\Users\caesa\Desktop\AnalisisData\dashboard\PRSA_Data_Shunyi_20130301-20170228.csv')
-    temp_data = pd.read_csv(r'C:\Users\caesa\Desktop\AnalisisData\dashboard\PRSA_Data_Tiantan_20130301-20170228.csv')
+    co_data = pd.read_csv('PRSA_Data_Tiantan_20130301-20170228.csv')
+    temp_data = pd.read_csv('PRSA_Data_Shunyi_20130301-20170228.csv')
     
     print("Columns in CO dataset:", co_data.columns.tolist())
     print("Columns in Temperature dataset:", temp_data.columns.tolist())
